@@ -24,7 +24,6 @@ import Image from "next/image"
 import { useState, useEffect } from "react"
 import { AdminPanel } from "@/components/admin-panel"
 import { CustomBackground } from "@/components/custom-background"
-// Agregar los imports de los nuevos componentes al inicio del archivo
 import { GameRequestForm } from "@/components/game-request-form"
 import { TournamentRegistrationForm } from "@/components/tournament-registration-form"
 
@@ -74,9 +73,16 @@ export default function ViltrumZone({ customBackgrounds }: PageProps) {
     banner: { url: "", type: "image" as "image" | "video" },
     contact: { url: "", type: "image" as "image" | "video" },
   })
-  // Agregar estos estados después de los otros useState
   const [showGameRequestForm, setShowGameRequestForm] = useState(false)
   const [showTournamentForm, setShowTournamentForm] = useState(false)
+  const [customGames, setCustomGames] = useState<any[]>([])
+  const [customSocialNetworks, setCustomSocialNetworks] = useState<any[]>([])
+  const [isClient, setIsClient] = useState(false)
+
+  // Verificar si estamos en el cliente
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleIconUpdate = (gameId: string, iconUrl: string) => {
     setGameIcons((prev) => ({
@@ -99,7 +105,10 @@ export default function ViltrumZone({ customBackgrounds }: PageProps) {
     }))
   }
 
+  // Cargar datos del localStorage solo en el cliente
   useEffect(() => {
+    if (!isClient) return
+
     // Función para cargar fondos desde localStorage
     const loadBackgrounds = () => {
       const backgrounds = {
@@ -119,7 +128,36 @@ export default function ViltrumZone({ customBackgrounds }: PageProps) {
       setBackgroundsState(backgrounds)
     }
 
+    // Cargar iconos sociales
+    const loadSocialIcons = () => {
+      const savedSocialIcons = JSON.parse(localStorage.getItem("socialIcons") || "{}")
+      setSocialIcons(savedSocialIcons)
+    }
+
+    // Cargar iconos de juegos
+    const loadGameIcons = () => {
+      const savedGameIcons = JSON.parse(localStorage.getItem("gameIcons") || "{}")
+      setGameIcons(savedGameIcons)
+    }
+
+    // Cargar juegos personalizados
+    const loadCustomGames = () => {
+      const savedCustomGames = JSON.parse(localStorage.getItem("customGames") || "[]")
+      setCustomGames(savedCustomGames)
+    }
+
+    // Cargar redes sociales personalizadas
+    const loadCustomSocialNetworks = () => {
+      const savedCustomSocials = JSON.parse(localStorage.getItem("customSocialNetworks") || "[]")
+      setCustomSocialNetworks(savedCustomSocials)
+    }
+
+    // Cargar todos los datos
     loadBackgrounds()
+    loadSocialIcons()
+    loadGameIcons()
+    loadCustomGames()
+    loadCustomSocialNetworks()
 
     // Escuchar eventos de actualización
     const handleBackgroundUpdate = (event: CustomEvent) => {
@@ -127,48 +165,39 @@ export default function ViltrumZone({ customBackgrounds }: PageProps) {
     }
 
     const handleSocialIconUpdate = () => {
-      const savedSocialIcons = JSON.parse(localStorage.getItem("socialIcons") || "{}")
-      setSocialIcons(savedSocialIcons)
+      loadSocialIcons()
     }
 
     const handleGameIconUpdate = () => {
-      const savedGameIcons = JSON.parse(localStorage.getItem("gameIcons") || "{}")
-      setGameIcons(savedGameIcons)
+      loadGameIcons()
+    }
+
+    const handleGamesUpdate = (event: CustomEvent) => {
+      const customGames = event.detail
+      setCustomGames(customGames)
+      console.log("Juegos actualizados:", customGames)
+    }
+
+    const handleSocialNetworksUpdate = (event: CustomEvent) => {
+      const customSocials = event.detail
+      setCustomSocialNetworks(customSocials)
+      console.log("Redes sociales actualizadas:", customSocials)
     }
 
     window.addEventListener("backgroundUpdate", handleBackgroundUpdate as EventListener)
     window.addEventListener("socialIconUpdate", handleSocialIconUpdate)
     window.addEventListener("gameIconUpdate", handleGameIconUpdate)
+    window.addEventListener("gamesUpdate", handleGamesUpdate as EventListener)
+    window.addEventListener("socialNetworksUpdate", handleSocialNetworksUpdate as EventListener)
 
     return () => {
       window.removeEventListener("backgroundUpdate", handleBackgroundUpdate as EventListener)
       window.removeEventListener("socialIconUpdate", handleSocialIconUpdate)
       window.removeEventListener("gameIconUpdate", handleGameIconUpdate)
-    }
-  }, [])
-
-  useEffect(() => {
-    // Escuchar actualizaciones de juegos personalizados
-    const handleGamesUpdate = (event: CustomEvent) => {
-      const customGames = event.detail
-      // Aquí podrías actualizar el estado de juegos si fuera necesario
-      console.log("Juegos actualizados:", customGames)
-    }
-
-    // Escuchar actualizaciones de redes sociales personalizadas
-    const handleSocialNetworksUpdate = (event: CustomEvent) => {
-      const customSocials = event.detail
-      console.log("Redes sociales actualizadas:", customSocials)
-    }
-
-    window.addEventListener("gamesUpdate", handleGamesUpdate as EventListener)
-    window.addEventListener("socialNetworksUpdate", handleSocialNetworksUpdate as EventListener)
-
-    return () => {
       window.removeEventListener("gamesUpdate", handleGamesUpdate as EventListener)
       window.removeEventListener("socialNetworksUpdate", handleSocialNetworksUpdate as EventListener)
     }
-  }, [])
+  }, [isClient])
 
   const getBackgroundImage = (type: "banner" | "contact" | "general") => {
     // Primero intentar obtener de customBackgrounds prop
@@ -513,8 +542,8 @@ export default function ViltrumZone({ customBackgrounds }: PageProps) {
                 </span>
               </h2>
               <p className="text-center text-gray-300 mb-12 max-w-2xl mx-auto">
-                Más de {games.length + JSON.parse(localStorage.getItem("customGames") || "[]").length} juegos instalados
-                y listos para jugar. Desde battle royales hasta clásicos retro.
+                Más de {games.length + customGames.length} juegos instalados y listos para jugar. Desde battle royales
+                hasta clásicos retro.
               </p>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 max-w-6xl mx-auto">
                 {/* Juegos predeterminados */}
@@ -532,24 +561,21 @@ export default function ViltrumZone({ customBackgrounds }: PageProps) {
                 ))}
 
                 {/* Juegos personalizados */}
-                {(() => {
-                  const customGames = JSON.parse(localStorage.getItem("customGames") || "[]")
-                  return customGames.map((game: any, index: number) => (
-                    <div
-                      key={`custom-${index}`}
-                      className="bg-black/60 border border-purple-400/50 rounded-lg p-4 text-center hover:border-purple-400 transition-all duration-300 shadow-lg shadow-purple-400/25 hover:shadow-purple-400/50 hover:scale-105 backdrop-blur-sm"
-                    >
-                      <div className="mb-2 flex justify-center">
-                        <GameIcon game={game.id} name={game.name} />
-                      </div>
-                      <h4 className="text-white text-sm font-semibold mb-1">{game.name}</h4>
-                      <p className="text-gray-400 text-xs">{game.genre}</p>
-                      <div className="mt-1">
-                        <span className="text-purple-400 text-xs font-medium">Personalizado</span>
-                      </div>
+                {customGames.map((game: any, index: number) => (
+                  <div
+                    key={`custom-${index}`}
+                    className="bg-black/60 border border-purple-400/50 rounded-lg p-4 text-center hover:border-purple-400 transition-all duration-300 shadow-lg shadow-purple-400/25 hover:shadow-purple-400/50 hover:scale-105 backdrop-blur-sm"
+                  >
+                    <div className="mb-2 flex justify-center">
+                      <GameIcon game={game.id} name={game.name} />
                     </div>
-                  ))
-                })()}
+                    <h4 className="text-white text-sm font-semibold mb-1">{game.name}</h4>
+                    <p className="text-gray-400 text-xs">{game.genre}</p>
+                    <div className="mt-1">
+                      <span className="text-purple-400 text-xs font-medium">Personalizado</span>
+                    </div>
+                  </div>
+                ))}
               </div>
               <div className="text-center mt-8">
                 <p className="text-gray-400 mb-4">¿No encuentras tu juego favorito?</p>
@@ -844,31 +870,28 @@ export default function ViltrumZone({ customBackgrounds }: PageProps) {
                       </a>
 
                       {/* Redes sociales personalizadas */}
-                      {(() => {
-                        const customSocials = JSON.parse(localStorage.getItem("customSocialNetworks") || "[]")
-                        return customSocials.map((social: any, index: number) => (
-                          <a
-                            key={`custom-social-${index}`}
-                            href={social.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center p-3 bg-black/40 rounded-lg border border-${social.color}-400/30 hover:border-${social.color}-400 transition-colors group`}
+                      {customSocialNetworks.map((social: any, index: number) => (
+                        <a
+                          key={`custom-social-${index}`}
+                          href={social.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center p-3 bg-black/40 rounded-lg border border-${social.color}-400/30 hover:border-${social.color}-400 transition-colors group`}
+                        >
+                          <div
+                            className={`w-10 h-10 bg-gradient-to-r from-${social.color}-500 to-${social.color}-600 rounded-lg flex items-center justify-center mr-3 overflow-hidden`}
                           >
-                            <div
-                              className={`w-10 h-10 bg-gradient-to-r from-${social.color}-500 to-${social.color}-600 rounded-lg flex items-center justify-center mr-3 overflow-hidden`}
-                            >
-                              <span className="text-white font-bold text-sm">{social.icon}</span>
-                            </div>
-                            <div>
-                              <p className="text-white font-semibold">{social.name}</p>
-                              <p className="text-gray-400 text-sm">Personalizado</p>
-                            </div>
-                            <ExternalLink
-                              className={`w-4 h-4 text-${social.color}-400 ml-auto group-hover:text-${social.color}-300`}
-                            />
-                          </a>
-                        ))
-                      })()}
+                            <span className="text-white font-bold text-sm">{social.icon}</span>
+                          </div>
+                          <div>
+                            <p className="text-white font-semibold">{social.name}</p>
+                            <p className="text-gray-400 text-sm">Personalizado</p>
+                          </div>
+                          <ExternalLink
+                            className={`w-4 h-4 text-${social.color}-400 ml-auto group-hover:text-${social.color}-300`}
+                          />
+                        </a>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -938,7 +961,7 @@ export default function ViltrumZone({ customBackgrounds }: PageProps) {
           </div>
         </footer>
 
-        {/* Agregar los componentes de formularios antes del cierre del div principal (antes de </CustomBackground>): */}
+        {/* Formularios modales */}
         <GameRequestForm isOpen={showGameRequestForm} onClose={() => setShowGameRequestForm(false)} />
 
         <TournamentRegistrationForm isOpen={showTournamentForm} onClose={() => setShowTournamentForm(false)} />
